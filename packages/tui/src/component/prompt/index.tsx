@@ -15,6 +15,7 @@ import path from "path"
 import { fileURLToPath } from "url"
 import { useLocal } from "../../context/local"
 import { Flag } from "@opencode-ai/core/flag/flag"
+import { Identifier } from "@opencode-ai/core/util/identifier"
 import { tint, useTheme } from "../../context/theme"
 import { EmptyBorder, SplitBorder } from "../../ui/border"
 import { useTuiPaths, useTuiTerminalEnvironment } from "../../context/runtime"
@@ -991,6 +992,7 @@ export function Prompt(props: PromptProps) {
     }
 
     const variant = local.model.variant.current()
+    const messageID = `msg_${Identifier.ascending()}`
     let sessionID = props.sessionID
     let finishMoveProgress = false
     if (sessionID == null) {
@@ -1095,23 +1097,33 @@ export function Prompt(props: PromptProps) {
       })
     } else {
       move.startSubmit()
+      const parts = [
+        ...editorParts.map((part) => ({
+          id: `prt_${Identifier.ascending()}`,
+          ...part,
+        })),
+        {
+          id: `prt_${Identifier.ascending()}`,
+          type: "text" as const,
+          text: inputText,
+        },
+        ...nonTextParts.map((part) => ({
+          id: `prt_${Identifier.ascending()}`,
+          ...part,
+        })),
+      ]
+      const request = {
+        sessionID,
+        messageID,
+        agent: agent.name,
+        model: selectedModel,
+        variant,
+        parts,
+      }
+      sync.session.addOptimisticPrompt(request)
       sdk.client.session
-        .prompt({
-          sessionID,
-          ...selectedModel,
-          agent: agent.name,
-          model: selectedModel,
-          variant,
-          parts: [
-            ...editorParts,
-            {
-              type: "text",
-              text: inputText,
-            },
-            ...nonTextParts,
-          ],
-        })
-        .catch(() => {})
+        .prompt(request)
+        .catch(() => sync.session.removeOptimisticPrompt(request.sessionID, request.messageID))
       if (editorParts.length > 0) editor.markSelectionSent()
     }
     history.append({
