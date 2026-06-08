@@ -167,6 +167,7 @@ export function Prompt(props: PromptProps) {
   const { theme, syntax } = useTheme()
   const kv = useKV()
   const animationsEnabled = createMemo(() => kv.get("animations_enabled", true))
+  const [autoaccept, setAutoaccept] = kv.signal<"none" | "edit">("permission_auto_accept", "edit")
   const list = createMemo(() => props.placeholders?.normal ?? [])
   const shell = createMemo(() => props.placeholders?.shell ?? [])
   const fileContextEnabled = createMemo(() => kv.get("file_context_enabled", true))
@@ -348,6 +349,15 @@ export function Prompt(props: PromptProps) {
           const handled = await submit()
           if (!handled) return
 
+          dialog.clear()
+        },
+      },
+      {
+        title: autoaccept() === "edit" ? "Disable auto-accept edits" : "Auto-accept edits",
+        name: "permission.auto_accept.toggle",
+        category: "Session",
+        run: () => {
+          setAutoaccept((prev) => (prev === "none" ? "edit" : "none"))
           dialog.clear()
         },
       },
@@ -566,6 +576,7 @@ export function Prompt(props: PromptProps) {
       "prompt.stash",
       "prompt.stash.pop",
       "prompt.stash.list",
+      "permission.auto_accept.toggle",
       "session.interrupt",
       "workspace.set",
       "session.move",
